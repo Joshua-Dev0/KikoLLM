@@ -3,18 +3,21 @@ import cupy as cp
 from functions import swiGLU, softmax
 
 def FeedForwardNetwork(X, layers, Wg, Wu):
+  parallel_cols = X.shape[1]
   A = [X]
   Z = []
 
   for i in range(len(layers)):
     z = layers[i].weights @ A[i] + layers[i].bias
-    a = swiGLU(z, Wg, Wu)
+    a = swiGLU(z, layers[i].Wg, layers[i].Wu)
 
     Z.append(z)
     A.append(a)
 
   return A, Z
 
+
+# Backprop and update Needs revision
 def backward_propagation(Y_onehot: cp.ndarray, A, Z, layers):
   dW = [None] * len(layers)
   dB = [None] * len(layers)
