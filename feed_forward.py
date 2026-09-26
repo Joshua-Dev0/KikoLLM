@@ -1,0 +1,44 @@
+import cupy as cp
+
+from functions import swiGLU, softmax
+
+def FeedForwardNetwork(X, layers, Wg, Wu):
+  A = [X]
+  Z = []
+
+  for i in range(len(layers)):
+    z = layers[i].weights @ A[i] + layers[i].bias
+    a = swiGLU(z, Wg, Wu)
+
+    Z.append(z)
+    A.append(a)
+
+  return A, Z
+
+def backward_propagation(Y_onehot: cp.ndarray, A, Z, layers):
+  dW = [None] * len(layers)
+  dB = [None] * len(layers)
+
+  # Output layer
+  dZ = A[-1] - Y_onehot
+
+  # Traverse layers backwards
+  for i in reversed(range(len(layers))):
+
+    # Gradients for current layer
+    dW[i] = dZ @ A[i].T
+    dB[i] = dZ
+
+    # Propagate gradient to previous layer
+    if i > 0:
+      dA = layers[i].weights.T @ dZ
+      dZ = dA * relu_deriv(Z[i - 1])
+
+  return dW, dB
+
+def update_params(alpha, layers, dW, dB):
+  for i in range(len(layers)):
+    layers[i].weights -= alpha * dW[i]
+    layers[i].bias -= alpha * dB[i]
+
+  return layers

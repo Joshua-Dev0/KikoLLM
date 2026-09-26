@@ -1,0 +1,75 @@
+{
+  "config": {
+    "model": {
+      "type": "decoder-only-transformer",
+      "parameters": "35M",
+      "training_precision": "float16"
+    },
+
+    "input_layer": {
+      "type": "token_embedding",
+      "row": 16000,
+      "col": 384
+    },
+
+    "transformer": {
+      "n-layers": 6,
+      "repeat": 6,
+
+      "attention": {
+        "n-heads": 6,
+        "head-dim": 64,
+        "causal": true
+      },
+
+      "normalization": {
+        "type": "rmsnorm",
+        "epsilon": 0.00001
+      },
+
+      "position_encoding": {
+        "type": "rope",
+        "theta": 10000
+      },
+
+      "feed_forward": {
+        "activation": "swiglu",
+        "hidden_size": 1024
+      },
+
+      "residual": true
+    },
+
+    "context": {
+      "max-sequence-length": 512
+    },
+
+    "output_layer": {
+      "type": "linear",
+      "row": 16000,
+      "col": 384
+    },
+
+    "vocabulary": {
+      "size": 16000,
+      "tokenizer": "BPE"
+    },
+
+    "forward_propagation": {
+      "repeat": 6,
+      "input_shape": [512, 1],
+      "output_shape": [512, 16000]
+    },
+
+    "training": {
+      "objective": "next-token-prediction",
+      "loss": "cross-entropy",
+      "optimizer": "AdamW",
+      "learning-rate": 0.0003,
+      "weight-decay": 0.1,
+      "batch-size": 16,
+      "gradient-accumulation-steps": 4,
+      "epochs": 1
+    }
+  }
+}
