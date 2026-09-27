@@ -100,3 +100,15 @@ The following dimensions assume a fully padded or maximum sequence context of **
     \[\text{value} = X W_{\text{up}}^T \quad \rightarrow \quad (256, 512)\]
     \[\text{hidden} = \text{gate} \odot \text{value} \quad \rightarrow \quad (256, 512)\]
     \[\text{output} = \text{hidden} W_{\text{down}}^T \quad \rightarrow \quad (256, 256)\]
+
+Stage 1
+Dataset:
+TinyStories / other general text
+
+Purpose:
+Learn language
+Stage 2
+Dataset:
+UltraChat 200k subset
+
+Purpose:
