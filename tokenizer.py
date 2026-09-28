@@ -216,10 +216,6 @@ vocab, merge_rules = tokenizer.learn(vocab, merge_rules, data)
 # Save final tokenizer
 tokenizer.save(vocab, merge_rules, tokenizer_path)
 
-print()
-print("========================================")
-print("BPE TRAINING COMPLETE")
-print("========================================")
 print(f"Vocabulary size: {len(vocab)}")
 print(f"Merge rules: {len(merge_rules)}")
 print(f"Tokenizer saved to: {tokenizer_path}")
@@ -231,7 +227,6 @@ test_text = "My very first large language model"
 encoded = tokenizer.encode(test_text, vocab, merge_rules)
 decoded = tokenizer.decode(encoded, vocab)
 
-print()
 print("Test:")
 print("Original:", test_text)
 print("Encoded:", encoded)
