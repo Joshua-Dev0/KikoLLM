@@ -51,7 +51,7 @@
     },
 
     "vocabulary": {
-      "size": 16000,
+      "size": 8000,
       "tokenizer": "BPE"
     },
 
