@@ -1,2 +1,5 @@
-tokenizer = Tokenizer()
-tokenizer.learn(vocab, merge_rules, data.head(1))
+embedding = Embedding()
+
+embed = embedding.init_token_embedding()
+
+print(embed)
