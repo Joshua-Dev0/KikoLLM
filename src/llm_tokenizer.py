@@ -1,21 +1,11 @@
 import os
-import json
-import polars as pl
 from tokenizers import Tokenizer
 from tokenizers.models import BPE
 from tokenizers.pre_tokenizers import ByteLevel
 from tokenizers.trainers import BpeTrainer
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-
-data_path = os.path.join(SCRIPT_DIR, "dataset-tinystories-gpt4-clean/tinystories_gpt4_clean.parquet")
 tokenizer_path = os.path.join(SCRIPT_DIR, "models/tokenizer.json")
-config_path = os.path.join(SCRIPT_DIR, "config.json")
-
-with open(config_path, "r", encoding="utf-8") as file:
-  config = json.load(file)
-  
-vocab_size = config["config"]["vocabulary"]["size"]
 
 class BPE_Tokenizer:
   def __init__(self):
@@ -23,12 +13,17 @@ class BPE_Tokenizer:
     self.tokenizer.pre_tokenizer = ByteLevel(add_prefix_space=False)
 
   def encode(self, text):
-    return self.tokenizer.encode(text).ids
+      encoded = self.tokenizer.encode(text).ids
+
+      bos_id = self.tokenizer.token_to_id("<BOS>")
+      eos_id = self.tokenizer.token_to_id("<EOS>")
+
+      return [bos_id] + encoded + [eos_id]
 
   def decode(self, token_ids):
     return self.tokenizer.decode(token_ids)
 
-  def learn(self, data):
+  def learn(self, data, vocab_size):
     trainer = BpeTrainer(
       vocab_size=vocab_size,
       special_tokens=["<PAD>", "<BOS>", "<EOS>"],
@@ -46,24 +41,3 @@ class BPE_Tokenizer:
 
   def load(self, path):
     self.tokenizer = Tokenizer.from_file(path)
-
-
-data = pl.read_parquet(data_path)
-
-tokenizer = BPE_Tokenizer()
-
-# tokenizer.learn(data)
-# tokenizer.save(tokenizer_path)
-
-# print(f"Tokenizer saved to: {tokenizer_path}")
-
-text = "Absolute Cinema"
-
-tokenizer.load(tokenizer_path)
-
-encoded = tokenizer.encode(text)
-decoded = tokenizer.decode(encoded)
-
-print("Original:", text)
-print("Encoded:", encoded)
-print("Decoded:", decoded)

@@ -8,20 +8,6 @@ config_path = os.path.join(SCRIPT_DIR, "config.json")
 with open(config_path, "r", encoding="utf-8") as file:
   config = json.load(file)
   
-class swiGLU:
-  def __init__(self):
-    return 0
-  
-  def swiGLU(x, Wg, Wu):
-    xWg = Wg @ x
-    xWu = Wu @ x
-    gate = xWg * (1 / (1 + cp.exp(-xWg)))
-
-    return gate * xWu
-  
-  def swiglu_deriv():
-    return 0
-  
 class RMSNorm:
   def __init__(self):
     return 0
@@ -31,5 +17,9 @@ class RMSNorm:
     return (x / rms) * W
 
 
-def softmax():
-  return 0
+def softmax(scores):    # Accepts a 2D matrix and softmax the rows only
+  row_maxes = cp.max(scores, axis=-1, keepdims=True)
+  exp_scores = cp.exp(scores - row_maxes)
+  row_sums = cp.sum(exp_scores, axis=-1, keepdims=True)
+
+  return exp_scores / row_sums

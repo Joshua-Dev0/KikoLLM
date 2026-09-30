@@ -1,0 +1,72 @@
+User text
+   ↓
+UTF-8 bytes
+   ↓
+BPE tokenizer
+   ↓
+Token IDs
+(T,)
+   ↓
+Embedding lookup
+(8000,256)[token IDs]
+   ↓
+(T,256)
+   │
+   ▼
+┌──────────────────────────────┐
+│ Transformer Block × 6        │
+│                              │
+│ RMSNorm                      │
+│   ↓                          │
+│ Q = X @ Wq                   │
+│ K = X @ Wk                   │
+│ V = X @ Wv                   │
+│                              │
+│ Split into 8 heads           │
+│   ↓                          │
+│ RoPE(Q), RoPE(K)             │
+│   ↓                          │
+│ Q @ Kᵀ                       │
+│   ↓                          │
+│ / √32                        │
+│   ↓                          │
+│ causal mask                  │
+│   ↓                          │
+│ softmax                      │
+│   ↓                          │
+│ attention @ V                │
+│   ↓                          │
+│ concatenate heads            │
+│   ↓                          │
+│ @ Wo                         │
+│   ↓                          │
+│ residual from embedded token │
+│   ↓                          │
+│ RMSNorm                      │
+│   ↓                          │
+│ SwiGLU                       │
+│   ↓                          │
+│ residual                     │
+└──────────────────────────────┘
+   ↓
+(T,256)
+   ↓
+Final RMSNorm
+   ↓
+X @ Eᵀ
+   ↓
+(T,8000)
+   ↓
+Take last row
+   ↓
+(8000,)
+   ↓
+softmax
+   ↓
+probability of every token
+   ↓
+choose/sample next token
+   ↓
+BPE decode
+   ↓
+Generated text
