@@ -3,6 +3,7 @@ import json
 import cupy as cp
 
 from tokenize import BPE_Tokenizer
+from transformer import transformer, rmsnorm, softmax
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -43,10 +44,10 @@ class TransformerBlock:    # 6 transformer block
     def __init__(self, n_heads, head_dim, d_model):
       self.n_heads = n_heads
       self.head_dim = head_dim
-      self.Wq = cp.random.normal(0.0, 0.02, size=(d_model, d_model))
-      self.Wk = cp.random.normal(0.0, 0.02, size=(d_model, d_model)) 
-      self.Wv = cp.random.normal(0.0, 0.02, size=(d_model, d_model))
-      self.Wo = cp.random.normal(0.0, 0.02, size=(d_model, d_model))
+      self.Wq = cp.random.normal(0.0, 0.02, size=(d_model, d_model), dtype=cp.float32)
+      self.Wk = cp.random.normal(0.0, 0.02, size=(d_model, d_model), dtype=cp.float32) 
+      self.Wv = cp.random.normal(0.0, 0.02, size=(d_model, d_model), dtype=cp.float32)
+      self.Wo = cp.random.normal(0.0, 0.02, size=(d_model, d_model), dtype=cp.float32)
     
     def load(self, Wq, Wk, Wv, Wo):
       self.Wq = Wq
@@ -56,9 +57,9 @@ class TransformerBlock:    # 6 transformer block
       
   class SwiGLU:
     def __init__(self, d_model, ffn_hidden_dim):
-      self.Wg = cp.random.normal(0, 0.02, (ffn_hidden_dim, d_model))
-      self.Wu = cp.random.normal(0, 0.02, (ffn_hidden_dim, d_model))
-      self.Wd = cp.random.normal(0, 0.02, (d_model, ffn_hidden_dim))
+      self.Wg = cp.random.normal(0, 0.02, (ffn_hidden_dim, d_model), dtype=cp.float32)
+      self.Wu = cp.random.normal(0, 0.02, (ffn_hidden_dim, d_model), dtype=cp.float32)
+      self.Wd = cp.random.normal(0, 0.02, (d_model, ffn_hidden_dim), dtype=cp.float32)
     
     def load(self, Wg, Wu, Wd):
       self.Wg = Wg
@@ -66,11 +67,12 @@ class TransformerBlock:    # 6 transformer block
       self.Wd = Wd
 
 
-  def __init__(self, n_heads, head_dim, d_model, ffn_hidden_dim):
+  def __init__(self, n_heads, head_dim, d_model, ffn_hidden_dim, theta):
     self.attention = self.AttentionBlock(n_heads, head_dim, d_model)
     self.swiglu = self.SwiGLU(d_model, ffn_hidden_dim)
     self.attention_norm = RMSnorm(d_model)
     self.ffn_norm = RMSnorm(d_model)
+    self.theta = theta
     
   def load(self, Wq, Wk, Wv, Wo, Wg, Wu, Wd, attention_gamma, ffn_gamma):
     self.attention.load(Wq, Wk, Wv, Wo)
@@ -88,20 +90,24 @@ class InferenceBlock:
     n_heads, 
     head_dim, 
     d_model, 
-    ffn_hidden_dim
+    ffn_hidden_dim,
+    vocab_size,
+    theta
   ):
     for _ in range(n_layers):
       block = TransformerBlock(
         n_heads, 
         head_dim,
         d_model, 
-        ffn_hidden_dim
+        ffn_hidden_dim,
+        theta
       )
       self.transformer_blocks.append(block)
       
     self.rmsnorm = RMSnorm(d_model)
+    self.token_embedding = cp.random.normal(0.0, 0.02, size=(vocab_size, d_model), dtype=cp.float32)
   
-  def load(self, n_layers, Wq, Wk, Wv, Wo, Wg,  Wu, Wd, attention_gamma, ffn_gamma, final_gamma):
+  def load(self, n_layers, token_embedding, Wq, Wk, Wv, Wo, Wg,  Wu, Wd, attention_gamma, ffn_gamma, final_gamma):
     for i in range(n_layers):
       self.transformer_blocks[i].load(
         Wq[i], Wk[i], Wv[i],
@@ -111,35 +117,45 @@ class InferenceBlock:
       )
 
     self.rmsnorm.load(final_gamma)
+    self.token_embedding = token_embedding
 
 
+
+def softmax(scores):    # softmax over the last axis
+  row_maxes = cp.max(scores, axis=-1, keepdims=True)
+  exp_scores = cp.exp(scores - row_maxes)
+  return exp_scores / cp.sum(exp_scores, axis=-1, keepdims=True)
 
 tokenizer = BPE_Tokenizer()
 tokenizer.load(tokenizer_path)
 eos_id = tokenizer.tokenizer.token_to_id("<EOS>")
+model = InferenceBlock()
+model.InitializeModel(n_layers, n_heads, head_dim, d_model, ffn_hidden_dim, vocab_size, theta)
   
 def inference(text):
   tokens = tokenizer.encode(text)
   original_length = len(tokens)
   max_new_tokens = max_seq_len - len(tokens)
   
-  # for _ in range(max_seq_len):
-  #   tensor = embedding.lookup(tokens)
+  for _ in range(max_new_tokens):
+    tensor = model.token_embedding[cp.asarray(tokens)]
     
-  #   for i in range(repeat):
-  #     tensor = transformer(tensor)
+    for block in model.transformer_blocks:
+      tensor = transformer(tensor, block)
     
-  #   tensor_norm = rmsnorm.RMSnorm(tensor)
-  #   logits = tensor_norm @ embedding.token_embedding.T
+    tensor_norm = rmsnorm(tensor, model.rmsnorm.gamma, epsilon)
+    logits = tensor_norm @ model.token_embedding.T
     
-  #   next_token_logits = logits[-1]
-  #   probabilities = softmax(next_token_logits)
-  #   next_token_id = cp.argmax(cp.cumsum(probabilities) > cp.random.rand())
+    next_token_logits = logits[-1]
+    probabilities = softmax(next_token_logits)
+    probabilities = probabilities.astype(cp.float64)
+    probabilities /= probabilities.sum()
+    next_token_id = next_token_id = int(cp.random.choice(vocab_size, size=1, p=probabilities)[0])
     
-  #   tokens.append(int(next_token_id))
+    tokens.append(int(next_token_id))
 
-  #   if (next_token_id == eos_id):
-  #     break
+    if (next_token_id == eos_id):
+      break
   
   generated_tokens = tokens[original_length:]
   
@@ -152,15 +168,11 @@ def inference(text):
 def main():
   text = input("❯❯ ")
   
-  # result = inference(text)
-  
-  tokens = tokenizer.encode(text)
-  print(tokens)
-  result = tokenizer.decode(tokens)
+  result = inference(text)
   
   output = result + " ❮❮"
+  
   terminal_width = os.get_terminal_size().columns
   print(output.rjust(terminal_width))
 
 main()
-

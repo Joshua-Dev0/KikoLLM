@@ -3,6 +3,7 @@ from tokenizers import Tokenizer
 from tokenizers.models import BPE
 from tokenizers.pre_tokenizers import ByteLevel
 from tokenizers.trainers import BpeTrainer
+from tokenizers.decoders import ByteLevel as ByteLevelDecoder
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 tokenizer_path = os.path.join(SCRIPT_DIR, "models/tokenizer.json")
@@ -11,6 +12,11 @@ class BPE_Tokenizer:
   def __init__(self):
     self.tokenizer = Tokenizer(BPE())
     self.tokenizer.pre_tokenizer = ByteLevel(add_prefix_space=False)
+    self.tokenizer.decoder = ByteLevelDecoder()  
+    
+  def load(self, path):
+    self.tokenizer = Tokenizer.from_file(tokenizer_path)
+    self.tokenizer.decoder = ByteLevelDecoder()  
 
   def encode(self, text):
     encoded = self.tokenizer.encode(text).ids
@@ -38,6 +44,3 @@ class BPE_Tokenizer:
 
   def save(self, path):
     self.tokenizer.save(path)
-
-  def load(self, path):
-    self.tokenizer = Tokenizer.from_file(path)
