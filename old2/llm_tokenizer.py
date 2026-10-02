@@ -13,12 +13,12 @@ class BPE_Tokenizer:
     self.tokenizer.pre_tokenizer = ByteLevel(add_prefix_space=False)
 
   def encode(self, text):
-      encoded = self.tokenizer.encode(text).ids
+    encoded = self.tokenizer.encode(text).ids
 
-      bos_id = self.tokenizer.token_to_id("<BOS>")
-      eos_id = self.tokenizer.token_to_id("<EOS>")
+    bos_id = self.tokenizer.token_to_id("<BOS>")
+    eos_id = self.tokenizer.token_to_id("<EOS>")
 
-      return [bos_id] + encoded + [eos_id]
+    return [bos_id] + encoded + [eos_id]
 
   def decode(self, token_ids):
     return self.tokenizer.decode(token_ids)
