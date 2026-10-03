@@ -1,17 +1,27 @@
 import os
 import json
 import cupy as cp
+import numpy as np
+import polars as pl
 
 from tokenize import BPE_Tokenizer
 from transformer import transformer, rmsnorm, softmax
+from saveload import save, load, hash_model, tokenized_data_read
+from learning import backpropagation, adamw
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-config_path = os.path.join(SCRIPT_DIR, "config.json")
+config_path = os.path.join(SCRIPT_DIR, "config_rev.json")
 tokenizer_path = os.path.join(SCRIPT_DIR, "models/tokenizer.json")
+model_path = os.path.join(SCRIPT_DIR, "models/kikollm_17M_f32.pkl")
+data_path = os.path.join(SCRIPT_DIR, "dataset/tinystories_gpt4_clean.parquet")
+tokenized_data = os.path.join(SCRIPT_DIR, "dataset/tinystories_tokenized.parquet")
+
 
 with open(config_path, "r", encoding="utf-8") as file:
   config = json.load(file)
+
+
 
 # Transformer specs
 n_layers = config["config"]["transformer"]["n-layers"]
@@ -39,7 +49,7 @@ class RMSnorm:
   
   def load(self, gamma):
     self.gamma = gamma
-class TransformerBlock:    # 6 transformer block
+class TransformerBlock:    # 8 transformer block
   class AttentionBlock:    # 8 heads
     def __init__(self, n_heads, head_dim, d_model):
       self.n_heads = n_heads
@@ -83,6 +93,8 @@ class TransformerBlock:    # 6 transformer block
 class InferenceBlock:
   def __init__(self):
     self.transformer_blocks = []
+    self.rmsnorm = RMSnorm(d_model)
+    self.token_embedding = cp.random.normal(0.0, 0.02, size=(vocab_size, d_model), dtype=cp.float32)
   
   def InitializeModel(
     self,
@@ -129,10 +141,8 @@ def softmax(scores):    # softmax over the last axis
 tokenizer = BPE_Tokenizer()
 tokenizer.load(tokenizer_path)
 eos_id = tokenizer.tokenizer.token_to_id("<EOS>")
-model = InferenceBlock()
-model.InitializeModel(n_layers, n_heads, head_dim, d_model, ffn_hidden_dim, vocab_size, theta)
   
-def inference(text):
+def inference(text, model):
   tokens = tokenizer.encode(text)
   original_length = len(tokens)
   max_new_tokens = max_seq_len - len(tokens)
@@ -161,18 +171,30 @@ def inference(text):
   
   return tokenizer.decode(generated_tokens)
 
-
-
+def gradient_descent(model, tokenized_data, model_path):
+  
+  
+  
+  save(model, model_path)
+  print("Hash: " + hash_model(model))
 
 
 def main():
+  model = InferenceBlock()
+  # model.InitializeModel(n_layers, n_heads, head_dim, d_model, ffn_hidden_dim, vocab_size, theta)
+  
+  # print("Hash: " + hash_model(model))
+  # save(model, model_path)
+  model = load(model_path)
+  print("Hash: " + hash_model(model))
+  
   text = input("❯❯ ")
   
-  result = inference(text)
+  result = inference(text, model)
   
-  output = result + " ❮❮"
+  # for block in model.transformer_blocks:
+  #   print("ok")
   
-  terminal_width = os.get_terminal_size().columns
-  print(output.rjust(terminal_width))
+  print("\n" + result + "\n")
 
 main()
