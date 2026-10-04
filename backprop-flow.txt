@@ -1,0 +1,79 @@
+BACKWARD
+══════════════════════════════════════════════════════════════════
+
+LOSS
+ ↓
+Cross-Entropy
+ ↓
+dLogits
+ ↓
+┌───────────────────────────────────────────────────────────────┐
+│ LM HEAD                                                       │
+│                                                               │
+│ logits = X @ Eᵀ                                              │
+│                                                               │
+│ dX = dLogits @ E                                              │
+│ dE = dLogitsᵀ @ X                                             │
+└───────────────────────────────────────────────────────────────┘
+ ↓
+Final RMSNorm backward
+ ↓
+dX
+ ↓
+┌───────────────────────────────────────────────────────────────┐
+│                  TRANSFORMER BLOCK 6                          │
+│                                                               │
+│ Residual backward                                             │
+│       ↓                                                       │
+│ SwiGLU backward                                               │
+│       ↓                                                       │
+│ RMSNorm backward                                              │
+│       ↓                                                       │
+│ Residual gradient + Attention gradient                       │
+│       ↓                                                       │
+│ Attention backward                                            │
+│       │                                                       │
+│       ├── Wo backward → dWo                                  │
+│       ├── merge-head backward                                │
+│       ├── attention @ V backward                             │
+│       │       ├── dAttention                                 │
+│       │       └── dV                                         │
+│       ├── softmax backward                                   │
+│       ├── causal-mask backward                               │
+│       ├── scaling backward                                   │
+│       ├── QKᵀ backward                                      │
+│       │       ├── dQ                                         │
+│       │       └── dK                                         │
+│       ├── RoPE backward                                      │
+│       ├── split-head backward                                │
+│       ├── Q projection backward → dWq                        │
+│       ├── K projection backward → dWk                        │
+│       └── V projection backward → dWv                        │
+│                                                               │
+│ dX = dX_Q + dX_K + dX_V + residual gradient                  │
+└───────────────────────────────────────────────────────────────┘
+ ↓
+Block 5 backward
+ ↓
+Block 4 backward
+ ↓
+Block 3 backward
+ ↓
+Block 2 backward
+ ↓
+Block 1 backward
+ ↓
+Embedding lookup backward
+ ↓
+dE_input
+ ↓
+dE = dE_output + dE_input
+ ↓
+ALL MODEL GRADIENTS
+ ↓
+AdamW
+ ↓
+UPDATE Wq, Wk, Wv, Wo
+UPDATE Wg, Wu, Wd
+UPDATE RMSNorm gammas
+UPDATE tied embedding E

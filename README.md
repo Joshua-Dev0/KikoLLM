@@ -6,28 +6,49 @@ A compact, highly optimized, **decoder-only Transformer language model** designe
 
 ## 📊 Model Specifications
 
-| Spec | Recommendation |
-| :--- | :--- |
-| **Architecture** | Decoder-only Transformer |
-| **Parameters** | **~10–20M** |
-| **Context length** | **256 tokens** |
-| **Vocabulary** | **~8,000 tokens** |
-| **`d_model`** | **256** |
-| **Transformer blocks** | **6** |
-| **Attention heads** | **8** |
-| **Head dimension** | 32 |
-| **FFN dimension** | **~512** |
-| **FFN activation** | **SwiGLU** |
-| **Positional encoding** | **RoPE** (Rotary Position Embedding) |
-| **Normalization** | **RMSNorm** |
-| **Attention** | **Causal self-attention** |
-| **Output** | Vocabulary logits |
-| **Weight tying** | **Yes** — Shared embedding and output linear weights |
-| **Precision** | FP32 initially; FP16/BF16 later for acceleration |
-| **Optimizer** | AdamW |
-| **Training Objective** | Next-token prediction |
-| **Hardware Target** | NVIDIA RTX 4060 (8 GB) |
-| **Training Time** | **<12 hours** |
+| Type                            | Specifications                                      |
+| :------------------------------ | :-------------------------------------------------- |
+| **Architecture**                | Decoder-only Transformer                            |
+| **Parameters**                  | **~17M**                                            |
+| **Context length**              | **256 tokens**                                      |
+| **Vocabulary**                  | **8,000 tokens**                                    |
+| **`d_model`**                   | **384**                                             |
+| **Transformer blocks**          | **8**                                               |
+| **Attention heads**             | **6**                                               |
+| **Head dimension**              | **64**                                              |
+| **FFN dimension**               | **1024**                                            |
+| **FFN activation**              | **SwiGLU**                                          |
+| **Positional encoding**         | **RoPE** (Rotary Position Embedding)                |
+| **RoPE theta**                  | **10,000**                                          |
+| **Normalization**               | **RMSNorm**                                         |
+| **RMSNorm epsilon**             | **1e-5**                                            |
+| **Attention**                   | **Causal self-attention**                           |
+| **Residual connections**        | **Yes**                                             |
+| **Output**                      | Vocabulary logits                                   |
+| **Weight tying**                | **Yes** — shared token embedding and output weights |
+| **Precision**                   | **FP32 initially; FP16/BF16 later**                 |
+| **Optimizer**                   | **AdamW**                                           |
+| **Training objective**          | **Next-token prediction**                           |
+| **Loss**                        | **Cross-entropy**                                   |
+| **Learning rate**               | **0.0006**                                          |
+| **Minimum LR**                  | **0.00006**                                         |
+| **LR warmup**                   | **300 steps**                                       |
+| **Weight decay**                | **0.1**                                             |
+| **Adam β₁**                     | **0.9**                                             |
+| **Adam β₂**                     | **0.95**                                            |
+| **Gradient clipping**           | **1.0**                                             |
+| **Batch size**                  | **16**                                              |
+| **Gradient accumulation**       | **8 steps**                                         |
+| **Effective batch size**        | **128 sequences**                                   |
+| **Epochs**                      | **1**                                               |
+| **Tokenizer**                   | **BPE**                                             |
+| **Forward propagation repeats** | **8**                                               |
+| **Input shape**                 | **`[256, 1]`**                                      |
+| **Output shape**                | **`[256, 8000]`**                                   |
+| **Hardware target**             | **NVIDIA RTX 4060 8 GB**                            |
+| **Training precision target**   | **FP32 → BF16/FP16**                                |
+| **Target training time**        | **<12 hours**                                       |
+
 
 ---
 

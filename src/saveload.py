@@ -6,6 +6,8 @@ import pickle
 import hashlib
 from tqdm import tqdm
 import math
+import pyarrow as pa
+import pyarrow.parquet as pq
 
 from tokenize import BPE_Tokenizer
 
@@ -14,32 +16,50 @@ data_path = os.path.join(SCRIPT_DIR, "dataset/tinystories_gpt4_clean.parquet")
 tokenized_data_path = os.path.join(SCRIPT_DIR, "dataset/tinystories_tokenized.parquet")
 tokenizer_path = os.path.join(SCRIPT_DIR, "models/tokenizer.json")
 
-def tokenizeData(parquet_path, output_path):
-  tokenizer = BPE_Tokenizer()
-  tokenizer.load(tokenizer_path)
+def tokenize_parquet(input_path, output_path, tokenizer, batch_size=1000):
+  df = pl.read_parquet(input_path)
+  writer = None
 
-  dataset = (pl.scan_parquet(parquet_path).select("text"))
-  total_rows = (dataset.select(pl.len()).collect().item())
+  try:
+    for start in tqdm(
+      range(0, df.height, batch_size),
+      desc="Tokenizing"
+    ):
+      batch = df.slice(start, batch_size)
 
-  chunk_size = 1024
-  total_batches = math.ceil(total_rows / chunk_size)
-  os.makedirs(output_path, exist_ok=True)
-  batches = dataset.collect_batches(chunk_size=chunk_size)
+      tokens = [
+        tokenizer.encode(text)
+        for text in batch["text"]
+      ]
 
-  for batch_number, batch in enumerate(tqdm(batches, total=total_batches, desc="Tokenizing corpus")):
-    tokenized_rows = []
+      tokenized_batch = pl.DataFrame({
+        "tokens": tokens
+      })
 
-    for text in batch["text"]:
-      tokens = tokenizer.encode(text)
-      tokenized_rows.append(tokens)
+      table = tokenized_batch.to_arrow()
 
-    output_batch = pl.DataFrame({"tokens": tokenized_rows})
-    output_batch.write_parquet(f"{output_path}/part_{batch_number:05d}.part")
+      if writer is None:
+        writer = pq.ParquetWriter(
+          output_path,
+          table.schema
+        )
+
+      writer.write_table(table)
+
+      del batch
+      del tokens
+      del tokenized_batch
+      del table
+
+  finally:
+    if writer is not None:
+      writer.close()
+  
+# tokenizer = BPE_Tokenizer()
+# tokenizer.load(tokenizer_path)
+# tokenize_parquet(data_path, tokenized_data_path, tokenizer, 1000)
         
-def tokenized_data_read(tokenized_path, row=0):
-  tokenizer = BPE_Tokenizer()
-  tokenizer.load(tokenizer_path)
-
+def tokenized_data_read(tokenizer, tokenized_path, row=0):
   data = pl.read_parquet(tokenized_path)
   tokens = data["tokens"][row].to_numpy()
 
@@ -52,9 +72,31 @@ def tokenized_data_read(tokenized_path, row=0):
   # print(text)
   
   return tokens
+
+# tokenizer = BPE_Tokenizer()
+# tokenizer.load(tokenizer_path)
+# print(tokenizer.decode(tokenized_data_read(tokenizer, tokenized_data_path, row=0)))
+
+def get_batch(path, start, end):
+  data = (
+    pl.scan_parquet(path)
+    .slice(start, end - start)
+    .select("tokens")
+    .collect()
+  )
+
+  return cp.asarray(data["tokens"].to_list(), dtype=cp.int32)
   
 # tokenizeData(data_path, tokenized_data_path)
-print(tokenized_data_read(tokenized_data_path, row=1399))
+# print(tokenized_data_read(tokenizer_path, tokenized_data_path, row=1399))
+
+# tokenizer = BPE_Tokenizer()
+# tokenizer.load(tokenizer_path)
+# batch = get_batch(tokenized_data_path, 0, 10)
+# # print(batch[0])
+# # print(batch[1024])
+# print("Row 0: " + tokenizer.decode(batch[0]))
+# print("Row 3: " + tokenizer.decode(batch[9]))
 
 def save(model, path):
   with open(path, "wb") as file:

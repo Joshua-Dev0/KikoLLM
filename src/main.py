@@ -6,7 +6,7 @@ import polars as pl
 
 from tokenize import BPE_Tokenizer
 from transformer import transformer, rmsnorm, softmax
-from saveload import save, load, hash_model, tokenized_data_read
+from saveload import save, load, hash_model, tokenized_data_read, batch_read
 from learning import backpropagation, adamw
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -36,7 +36,12 @@ ffn_hidden_dim = config["config"]["transformer"]["feed_forward"]["hidden_size"]
 
 # Training
 alpha = config["config"]["training"]["learning-rate"]
+lr_min = config["config"]["training"]["lr-min"]
+lr_warmup_steps = config["config"]["training"]["lr-warmup-steps"]
 weight_decay = config["config"]["training"]["weight-decay"]
+beta1 = config["config"]["training"]["beta1"]
+beta2 = config["config"]["training"]["beta2"]
+grad_clip = config["config"]["training"]["grad-clip"]
 batch_size = config["config"]["training"]["batch-size"]
 gradient_accum_steps = config["config"]["training"]["gradient-accumulation-steps"]
 epochs = config["config"]["training"]["epochs"]
@@ -142,12 +147,8 @@ tokenizer = BPE_Tokenizer()
 tokenizer.load(tokenizer_path)
 eos_id = tokenizer.tokenizer.token_to_id("<EOS>")
   
-def inference(text, model):
-  tokens = tokenizer.encode(text)
-  original_length = len(tokens)
-  max_new_tokens = max_seq_len - len(tokens)
-  
-  for _ in range(max_new_tokens):
+def inference(tokens, model):
+  for _ in range(max_seq_len):
     tensor = model.token_embedding[cp.asarray(tokens)]
     
     for block in model.transformer_blocks:
@@ -167,12 +168,23 @@ def inference(text, model):
     if (next_token_id == eos_id):
       break
   
-  generated_tokens = tokens[original_length:]
-  
-  return tokenizer.decode(generated_tokens)
+  return tokenizer.decode(tokens), logits
 
-def gradient_descent(model, tokenized_data, model_path):
+def gradient_descent(model, tokenized_data_path, model_path):
+  batch_size = 1024
+  start = 0
+  end = batch_size
   
+  for i in range(epochs):
+    for n in range(max_rows):
+      batch = fetch_rows(tokenized_data_path, start, end)
+      _, logits = inference(tokenized_text, model)
+      
+      
+      start = end + 1
+      end += batch_size - 1
+
+      
   
   
   save(model, model_path)
@@ -190,10 +202,8 @@ def main():
   
   text = input("❯❯ ")
   
-  result = inference(text, model)
-  
-  # for block in model.transformer_blocks:
-  #   print("ok")
+  tokenized_text = tokens = tokenizer.encode(text)
+  result, _ = inference(tokenized_text, model)
   
   print("\n" + result + "\n")
 
