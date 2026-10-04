@@ -1,3 +1,5 @@
 tokenizer = BPE_Tokenizer()
-# tokenizer.load(tokenizer_path)
-# tokenize_parquet(data_path, tokenized_data_path, tokenizer, 1000)
+tokenizer.load(tokenizer_path)
+batch = get_batch(tokenized_data_path, 0, 10)
+# print(batch[0])
+# print(batch[1024])

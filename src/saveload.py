@@ -39,10 +39,7 @@ def tokenize_parquet(input_path, output_path, tokenizer, batch_size=1000):
       table = tokenized_batch.to_arrow()
 
       if writer is None:
-        writer = pq.ParquetWriter(
-          output_path,
-          table.schema
-        )
+        writer = pq.ParquetWriter(output_path, table.schema)
 
       writer.write_table(table)
 
@@ -62,25 +59,22 @@ def tokenize_parquet(input_path, output_path, tokenizer, batch_size=1000):
 def tokenized_data_read(tokenizer, tokenized_path, row=0):
   data = pl.read_parquet(tokenized_path)
   tokens = data["tokens"][row].to_numpy()
-
-  tokens = tokens.reshape(1, -1)
-
-  # print("Token IDs:")
-  # print(tokens)
-  # text = tokenizer.decode(tokens)
-  # print("\nDecoded text:")
-  # print(text)
   
   return tokens
 
 # tokenizer = BPE_Tokenizer()
 # tokenizer.load(tokenizer_path)
-# print(tokenizer.decode(tokenized_data_read(tokenizer, tokenized_data_path, row=0)))
+# tokens = tokenizer.decode(tokenized_data_read(tokenizer, tokenized_data_path, row=10))
+# print("Token IDs:")
+# print(tokens)
+# text = tokenizer.decode(tokens)
+# print("\nDecoded text:")
+# print(text)
 
-def get_batch(path, start, end):
+def get_batch(path, start, batch_size):
   data = (
     pl.scan_parquet(path)
-    .slice(start, end - start)
+    .slice(start, batch_size)
     .select("tokens")
     .collect()
   )
@@ -90,13 +84,13 @@ def get_batch(path, start, end):
 # tokenizeData(data_path, tokenized_data_path)
 # print(tokenized_data_read(tokenizer_path, tokenized_data_path, row=1399))
 
-# tokenizer = BPE_Tokenizer()
-# tokenizer.load(tokenizer_path)
-# batch = get_batch(tokenized_data_path, 0, 10)
-# # print(batch[0])
-# # print(batch[1024])
-# print("Row 0: " + tokenizer.decode(batch[0]))
-# print("Row 3: " + tokenizer.decode(batch[9]))
+tokenizer = BPE_Tokenizer()
+tokenizer.load(tokenizer_path)
+batch = get_batch(tokenized_data_path, start=0, batch_size=16)
+
+print(batch.shape)
+print("Row 0: " + tokenizer.decode(batch[0]))
+print("Row 3: " + tokenizer.decode(batch[9]))
 
 def save(model, path):
   with open(path, "wb") as file:
