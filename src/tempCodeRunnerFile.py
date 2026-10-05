@@ -1,5 +1,0 @@
-tokenizer = BPE_Tokenizer()
-tokenizer.load(tokenizer_path)
-batch = get_batch(tokenized_data_path, 0, 10)
-# print(batch[0])
-# print(batch[1024])

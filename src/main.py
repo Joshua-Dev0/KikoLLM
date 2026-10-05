@@ -8,6 +8,7 @@ from tokenize import BPE_Tokenizer
 from transformer import transformer, rmsnorm, softmax
 from saveload import save, load, hash_model, tokenized_data_read, batch_read
 from learning import backpropagation, adamw
+from forwardpass import transformer_batch
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -154,14 +155,16 @@ def inference(tokens, model):
     for block in model.transformer_blocks:
       tensor = transformer(tensor, block)
     
+    # Final normalization and token embedding dot product
     tensor_norm = rmsnorm(tensor, model.rmsnorm.gamma, epsilon)
     logits = tensor_norm @ model.token_embedding.T
     
+    # Random choice and softmax
     next_token_logits = logits[-1]
     probabilities = softmax(next_token_logits)
     probabilities = probabilities.astype(cp.float64)
     probabilities /= probabilities.sum()
-    next_token_id = next_token_id = int(cp.random.choice(vocab_size, size=1, p=probabilities)[0])
+    next_token_id = int(cp.random.choice(vocab_size, size=1, p=probabilities)[0])
     
     tokens.append(int(next_token_id))
 
