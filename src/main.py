@@ -6,9 +6,9 @@ import polars as pl
 
 from tokenize import BPE_Tokenizer
 from transformer import transformer, rmsnorm, softmax
-from saveload import save, load, hash_model, tokenized_data_read, batch_read
-from learning import backpropagation, adamw
-from forwardpass import transformer_batch
+from saveload import save, load, hash_model, get_batch
+from learning import backpropagation, adamw, cross_entropy
+from forwardpass import transformer_batch, rmsnorm_cache
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -18,10 +18,8 @@ model_path = os.path.join(SCRIPT_DIR, "models/kikollm_17M_f32.pkl")
 data_path = os.path.join(SCRIPT_DIR, "dataset/tinystories_gpt4_clean.parquet")
 tokenized_data = os.path.join(SCRIPT_DIR, "dataset/tinystories_tokenized.parquet")
 
-
 with open(config_path, "r", encoding="utf-8") as file:
   config = json.load(file)
-
 
 
 # Transformer specs
@@ -138,7 +136,6 @@ class InferenceBlock:
     self.token_embedding = token_embedding
 
 
-
 def softmax(scores):    # softmax over the last axis
   row_maxes = cp.max(scores, axis=-1, keepdims=True)
   exp_scores = cp.exp(scores - row_maxes)
@@ -173,22 +170,45 @@ def inference(tokens, model):
   
   return tokenizer.decode(tokens), logits
 
-def gradient_descent(model, tokenized_data_path, model_path):
-  batch_size = 1024
-  start = 0
-  end = batch_size
+def gradient_descent(model, tokenized_data_path, model_path, batch_size):
+  parameters = []
+  start = 0  
   
   for i in range(epochs):
     for n in range(max_rows):
-      batch = fetch_rows(tokenized_data_path, start, end)
-      _, logits = inference(tokenized_text, model)
+      batch = get_batch(tokenized_data_path, start, batch_size)
       
+      # Embedding batch code here
       
-      start = end + 1
-      end += batch_size - 1
+      # Embedded Tokens
+      parameters["embedded_tokens"] = embedded_tokens
+      
+      # Transoformer forward
+      for block in model.transformer_blocks:
+        block_parameters = {}
+        tensor, parameters = transformer_batch(embedded_tokens, block, parameters)
+        parameters.append(block_parameters)
 
+      # Final normalization
+      tensor, final_rms = rmsnorm_cache(tensor, model.rmsnorm.gamma, epsilon)
+      parameters.append({
+        "final_norm": tensor,
+        "final_rms": final_rms
+      })
       
-  
+      # Calculate logits
+      logits = tensor @ model.token_embedding.T
+      
+      # Calculate loss value
+      loss = cross_entropy(logits, targets)
+      
+      # Backpropagation
+      dmodel = backpropagation(model, loss, parameters)
+      
+      # Update parameters
+      model = adamw(dmodel)
+      
+      start += batch_size
   
   save(model, model_path)
   print("Hash: " + hash_model(model))
@@ -201,8 +221,9 @@ def main():
   # print("Hash: " + hash_model(model))
   # save(model, model_path)
   model = load(model_path)
-  print("Hash: " + hash_model(model))
+  print("Model Hash: " + hash_model(model))
   
+  print("\nKikoGPT v1\n")
   text = input("❯❯ ")
   
   tokenized_text = tokens = tokenizer.encode(text)

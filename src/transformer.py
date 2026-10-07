@@ -1,6 +1,6 @@
 import cupy as cp
 
-from functions import rmsnorm, ff_swiglu, softmax
+from functions import softmax
 
 def RoPE(x, head_dim, theta):   # x: (num_heads, T, head_dim)
   dimension = cp.arange(head_dim // 2, dtype=cp.float32)
@@ -24,6 +24,20 @@ def RoPE(x, head_dim, theta):   # x: (num_heads, T, head_dim)
   rotate_x[:, :, 1::2] = rotate_odd
 
   return rotate_x
+
+def ff_swiglu(x, Wg, Wu, Wd):
+  xWg = x @ Wg.T
+  xWu = x @ Wu.T
+
+  sigmoid = cp.reciprocal(1.0 + cp.exp(-xWg))
+  gate = xWg * sigmoid
+  hidden = gate * xWu
+
+  return hidden @ Wd.T
+
+def rmsnorm(x, gamma, eps=1e-5):
+  rms = cp.sqrt(cp.mean(x ** 2, axis=-1, keepdims=True) + eps)
+  return (x / rms) * gamma
 
 def transformer(embedded_tokens, block):
   token_norm = rmsnorm(embedded_tokens, block.attention_norm.gamma)

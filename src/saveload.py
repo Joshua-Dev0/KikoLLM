@@ -87,13 +87,13 @@ def get_batch(path, start, batch_size):
 # tokenizeData(data_path, tokenized_data_path)
 # print(tokenized_data_read(tokenizer_path, tokenized_data_path, row=1399))
 
-tokenizer = BPE_Tokenizer()
-tokenizer.load(tokenizer_path)
-batch = get_batch(tokenized_data_path, start=0, batch_size=2)
+# tokenizer = BPE_Tokenizer()
+# tokenizer.load(tokenizer_path)
+# batch = get_batch(tokenized_data_path, start=0, batch_size=2)
 
-print(len(batch))
-print("Row 0:", tokenizer.decode(batch[0].tolist()))
-print("Row 1:", tokenizer.decode(batch[1].tolist()))
+# print(len(batch))
+# print("Row 0:", tokenizer.decode(batch[0].tolist()))
+# print("Row 1:", tokenizer.decode(batch[1].tolist()))
 
 def save(model, path):
   with open(path, "wb") as file:
