@@ -170,43 +170,69 @@ def inference(tokens, model):
   
   return tokenizer.decode(tokens), logits
 
-def gradient_descent(model, tokenized_data_path, model_path, batch_size):
-  parameters = []
+
+
+def token_processing(batch):
+  token_stream = []
+
+  for row in batch:
+    token_stream.extend(row)
+
+  seq_len = max_seq_len + 1
+
+  processed_batch = []
+
+  for i in range(0, len(token_stream) - seq_len + 1, seq_len):
+    processed_batch.append(token_stream[i:i + seq_len])
+
+  if len(processed_batch) == 0:
+    return None
+
+  processed_batch = cp.asarray(processed_batch, dtype=cp.int32)
+
+  inputs = processed_batch[:, :-1]
+  targets = processed_batch[:, 1:]
+
+  return inputs, targets
+
+def gradient_descent(model, tokenized_data_path, model_path, row_batch):
   start = 0  
   
   for i in range(epochs):
     for n in range(max_rows):
-      batch = get_batch(tokenized_data_path, start, batch_size)
+      parameters = []
+      batch = get_batch(tokenized_data_path, start, row_batch)
       
-      # Embedding batch code here
-      
-      # Embedded Tokens
-      parameters["embedded_tokens"] = embedded_tokens
+      # Add code to process these batch into uniform length instead of variable row length
+      inputs, targets = token_processing(batch)
+
+      # Embedding
+      tensor = model.token_embedding[token_ids]
+      parameters.append({"token_ids": token_ids})
       
       # Transoformer forward
       for block in model.transformer_blocks:
-        block_parameters = {}
-        tensor, parameters = transformer_batch(embedded_tokens, block, parameters)
+        block_parameters = {"x_in": tensor}
+        tensor, block_parameters = transformer_batch(tensor, block, block_parameters)
         parameters.append(block_parameters)
+        
+      parameters.append({"final_tensor": tensor})
 
       # Final normalization
       tensor, final_rms = rmsnorm_cache(tensor, model.rmsnorm.gamma, epsilon)
-      parameters.append({
-        "final_norm": tensor,
-        "final_rms": final_rms
-      })
+      parameters.append({"final_rms": final_rms})
       
       # Calculate logits
       logits = tensor @ model.token_embedding.T
       
       # Calculate loss value
-      loss = cross_entropy(logits, targets)
+      loss, dlogits = cross_entropy(logits, targets)
       
       # Backpropagation
-      dmodel = backpropagation(model, loss, parameters)
+      dmodel = backpropagation(model, dlogits, parameters)
       
       # Update parameters
-      model = adamw(dmodel)
+      model = adamw(dmodel, alpha)
       
       start += batch_size
   
