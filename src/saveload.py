@@ -71,18 +71,45 @@ def tokenized_data_read(tokenizer, tokenized_path, row=0):
 # print("\nDecoded text:")
 # print(text)
 
-def get_batch(path, start, batch_size):
-  data = (
-    pl.scan_parquet(path)
-    .slice(start, batch_size)
-    .select("tokens")
-    .collect()
-  )
+# def get_batch(path, start, batch_size):
+#   data = (
+#     pl.scan_parquet(path)
+#     .slice(start, batch_size)
+#     .select("tokens")
+#     .collect()
+#   )
 
-  return [
-    tokens.to_numpy()
-    for tokens in data["tokens"]
-  ]
+#   return [
+#     tokens.to_numpy()
+#     for tokens in data["tokens"]
+#   ]
+  
+def get_batch(path, start, max_seq_len, batch_size):
+  
+  total_elements = max_seq_len * batch_size
+  total = 0
+  tokens_batch = []
+  
+  while total <= total_elements:
+    data = (
+      pl.scan_parquet(path)
+      .slice(start, 1)
+      .select("tokens")
+      .collect()
+    )
+
+    batch = [
+      tokens.to_numpy()
+      for tokens in data["tokens"]
+    ]
+    
+    total += sum(len(row) for row in batch)
+    
+    start += 1
+
+  return batch, total
+
+print(get_batch(tokenized_data_path, 1, 256, 1))
   
 # tokenizeData(data_path, tokenized_data_path)
 # print(tokenized_data_read(tokenizer_path, tokenized_data_path, row=1399))

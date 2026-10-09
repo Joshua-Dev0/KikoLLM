@@ -172,36 +172,38 @@ def inference(tokens, model):
 
 
 
-def token_processing(batch):
-  token_stream = []
+# def token_processing(batch):
+#   token_stream = []
 
-  for row in batch:
-    token_stream.extend(row)
+#   for row in batch:
+#     token_stream.extend(row)
 
-  seq_len = max_seq_len + 1
+#   seq_len = max_seq_len + 1
 
-  processed_batch = []
+#   processed_batch = []
 
-  for i in range(0, len(token_stream) - seq_len + 1, seq_len):
-    processed_batch.append(token_stream[i:i + seq_len])
+#   for i in range(0, len(token_stream) - seq_len + 1, seq_len):
+#     processed_batch.append(token_stream[i:i + seq_len])
 
-  if len(processed_batch) == 0:
-    return None
+#   if len(processed_batch) == 0:
+#     return None
 
-  processed_batch = cp.asarray(processed_batch, dtype=cp.int32)
+#   processed_batch = cp.asarray(processed_batch, dtype=cp.int32)
 
-  inputs = processed_batch[:, :-1]
-  targets = processed_batch[:, 1:]
+#   inputs = processed_batch[:, :-1]
+#   targets = processed_batch[:, 1:]
 
-  return inputs, targets
+#   return inputs, targets
 
 def gradient_descent(model, tokenized_data_path, model_path, row_batch):
   start = 0  
   
   for i in range(epochs):
-    for n in range(max_rows):
+    for n in range(max_batched_rows):
       parameters = []
-      batch = get_batch(tokenized_data_path, start, row_batch)
+      
+      # Get batch function should be redesigned to get a perfectly uniformed batch of rows
+      batch, checkpoint_index = get_batch(tokenized_data_path, start, max_seq_len, _sizebatch)
       
       # Add code to process these batch into uniform length instead of variable row length
       inputs, targets = token_processing(batch)
