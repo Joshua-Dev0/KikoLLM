@@ -55,61 +55,49 @@ def tokenize_parquet(input_path, output_path, tokenizer, batch_size=1000):
 # tokenizer = BPE_Tokenizer()
 # tokenizer.load(tokenizer_path)
 # tokenize_parquet(data_path, tokenized_data_path, tokenizer, 1000)
-        
-def tokenized_data_read(tokenizer, tokenized_path, row=0):
-  data = pl.read_parquet(tokenized_path)
-  tokens = data["tokens"][row].to_numpy()
-  
-  return tokens
 
-# tokenizer = BPE_Tokenizer()
-# tokenizer.load(tokenizer_path)
-# tokens = tokenizer.decode(tokenized_data_read(tokenizer, tokenized_data_path, row=10))
-# print("Token IDs:")
-# print(tokens)
-# text = tokenizer.decode(tokens)
-# print("\nDecoded text:")
-# print(text)
-
-# def get_batch(path, start, batch_size):
-#   data = (
-#     pl.scan_parquet(path)
-#     .slice(start, batch_size)
-#     .select("tokens")
-#     .collect()
-#   )
-
-#   return [
-#     tokens.to_numpy()
-#     for tokens in data["tokens"]
-#   ]
-  
-def get_batch(path, start, max_seq_len, batch_size):
-  
-  total_elements = max_seq_len * batch_size
+def get_batch(path, start, max_seq_len, batch_size, rows_per_read=64):
+  seq_len = max_seq_len + 1
+  total_elements = seq_len * batch_size
+  token_chunks = []
   total = 0
-  tokens_batch = []
-  
-  while total <= total_elements:
+ 
+  while total < total_elements:
     data = (
       pl.scan_parquet(path)
-      .slice(start, 1)
+      .slice(start, rows_per_read)
       .select("tokens")
       .collect()
     )
+ 
+    if data.is_empty():
+      break
+ 
+    for row in data["tokens"]:
+      single_row = row.to_numpy()
+      token_chunks.append(single_row)
+ 
+      total += len(single_row)
+      start += 1                               # only rows actually used move `start` forward
+ 
+      if total >= total_elements:
+        break
+ 
+  if total < total_elements:
+    raise ValueError("Not enough tokens remaining in the dataset.")
+ 
+  tokens_batch = np.concatenate(token_chunks)
+  batch = tokens_batch[:total_elements].reshape(batch_size, seq_len)
+ 
+  inputs = cp.asarray(batch[:, :-1])
+  targets = cp.asarray(batch[:, 1:])
+ 
+  return inputs, targets, start
 
-    batch = [
-      tokens.to_numpy()
-      for tokens in data["tokens"]
-    ]
-    
-    total += sum(len(row) for row in batch)
-    
-    start += 1
+# inputs, targets, start = get_batch(tokenized_data_path, 1, 5, 1)
 
-  return batch, total
-
-print(get_batch(tokenized_data_path, 1, 256, 1))
+# print("Inputs: ", inputs)
+# print("Targets: ", targets)
   
 # tokenizeData(data_path, tokenized_data_path)
 # print(tokenized_data_read(tokenizer_path, tokenized_data_path, row=1399))

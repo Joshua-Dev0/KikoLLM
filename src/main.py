@@ -202,15 +202,12 @@ def gradient_descent(model, tokenized_data_path, model_path, row_batch):
     for n in range(max_batched_rows):
       parameters = []
       
-      # Get batch function should be redesigned to get a perfectly uniformed batch of rows
-      batch, checkpoint_index = get_batch(tokenized_data_path, start, max_seq_len, _sizebatch)
-      
-      # Add code to process these batch into uniform length instead of variable row length
-      inputs, targets = token_processing(batch)
+      # Get batch function
+      inputs, targets, start = get_batch(tokenized_data_path, start, max_seq_len, batch_size)
 
       # Embedding
-      tensor = model.token_embedding[token_ids]
-      parameters.append({"token_ids": token_ids})
+      tensor_input = model.token_embedding[inputs]
+      parameters.append({"token_inputs_ids": inputs})
       
       # Transoformer forward
       for block in model.transformer_blocks:
