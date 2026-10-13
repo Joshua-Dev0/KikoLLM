@@ -170,31 +170,6 @@ def inference(tokens, model):
   
   return tokenizer.decode(tokens), logits
 
-
-
-# def token_processing(batch):
-#   token_stream = []
-
-#   for row in batch:
-#     token_stream.extend(row)
-
-#   seq_len = max_seq_len + 1
-
-#   processed_batch = []
-
-#   for i in range(0, len(token_stream) - seq_len + 1, seq_len):
-#     processed_batch.append(token_stream[i:i + seq_len])
-
-#   if len(processed_batch) == 0:
-#     return None
-
-#   processed_batch = cp.asarray(processed_batch, dtype=cp.int32)
-
-#   inputs = processed_batch[:, :-1]
-#   targets = processed_batch[:, 1:]
-
-#   return inputs, targets
-
 def gradient_descent(model, tokenized_data_path, model_path, row_batch):
   start = 0  
   
